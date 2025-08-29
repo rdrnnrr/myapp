@@ -5,6 +5,7 @@ import 'package:record/record.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'dart:typed_data';
 import 'dart:developer' as developer;
+
 void main() {
   runApp(const MyApp());
 }
@@ -12,27 +13,11 @@ void main() {
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Flutter Demo',
       theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
       ),
       home: const MyHomePage(title: 'Flutter Demo Home Page'),
@@ -42,15 +27,6 @@ class MyApp extends StatelessWidget {
 
 class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
 
   final String title;
 
@@ -66,7 +42,7 @@ class _MyHomePageState extends State<MyHomePage> {
   bool _isDiscovering = false;
   final _audioRecorder = AudioRecorder();
   final _audioPlayer = AudioPlayer();
-  bool _isRecording = false; // Declared _isRecording here
+  bool _isRecording = false;
 
   @override
   void initState() {
@@ -96,22 +72,22 @@ class _MyHomePageState extends State<MyHomePage> {
 
   void _pairDevice(BluetoothDevice device) async {
     try {
-      bool? paired = await bluetooth.bondDeviceAtAddress(device.address); // Handle bool?
-      if (paired == true) { // Check for true explicitly
+      bool? paired = await bluetooth.bondDeviceAtAddress(device.address);
+      if (paired == true) {
         developer.log('Paired with ${device.name}');
-        _startDiscovery(); // Refresh list after pairing
+        _startDiscovery();
       } else {
         developer.log('Failed to pair with ${device.name}');
       }
     } catch (e) {
-      developer.log('Error pairing with device: $e'); // Replaced print with developer.log
+      developer.log('Error pairing with device: $e');
     }
   }
 
   void _connectToDevice(BluetoothDevice device) async {
     try {
       _connection = await BluetoothConnection.toAddress(device.address);
-      developer.log('Connected to ${device.name}'); // Replaced print with developer.log
+      developer.log('Connected to ${device.name}');
       _listenForAudio();
     } catch (e) {
       developer.log('Error connecting to device: $e');
@@ -128,7 +104,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
   void _listenForAudio() {
     _connection?.input?.listen((Uint8List data) {
-      _audioPlayer.play(BytesSource(data)); // Corrected playBytes to play with BytesSource
+      _audioPlayer.play(BytesSource(data));
     }).onDone(() {
       developer.log('Disconnected by remote device');
     });
@@ -136,38 +112,34 @@ class _MyHomePageState extends State<MyHomePage> {
 
   void _startRecordingAndStreaming() async {
     if (await _audioRecorder.hasPermission()) {
-      await _audioRecorder.start( // Removed assignment to tempPath
+      await _audioRecorder.start(
         RecordConfig(),
-        path: 'temp_audio.m4a', // Provide a temporary path for recording
+        path: 'temp_audio.m4a',
       );
-      developer.log('Recording started: temp_audio.m4a'); // Updated log message
+      developer.log('Recording started: temp_audio.m4a');
 
       _audioRecorder.onStateChanged().listen((state) {
         developer.log('Recorder state changed: $state');
       });
     }
     setState(() {
-      _isRecording = true; // Set to true when recording starts
+      _isRecording = true;
     });
-    // TODO: Stop streaming audio data
+  }
+
+  void _stopRecordingAndStreaming() async {
+    final path = await _audioRecorder.stop();
+    developer.log('Recording stopped: $path');
+    setState(() {
+      _isRecording = false;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
     return Scaffold(
       appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
         title: Text(widget.title),
         actions: <Widget>[
           _isDiscovering
@@ -215,9 +187,9 @@ class _MyHomePageState extends State<MyHomePage> {
           );
         },
       ),
-      floatingActionButton: FloatingActionButton( // Moved FloatingActionButton here
-        onPressed: _startRecordingAndStreaming, // Changed to _startRecordingAndStreaming
-        tooltip: 'Start Recording',
+      floatingActionButton: FloatingActionButton(
+        onPressed: _isRecording ? _stopRecordingAndStreaming : _startRecordingAndStreaming,
+        tooltip: _isRecording ? 'Stop Recording' : 'Start Recording',
         child: Icon(_isRecording ? Icons.mic_off : Icons.mic),
       ),
       bottomNavigationBar: BottomAppBar(
