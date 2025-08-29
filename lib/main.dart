@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart';
 
 import 'package:record/record.dart';
+import 'package:record/record_platform_interface.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'dart:typed_data';
+import 'dart:developer' as developer;
 void main() {
   runApp(const MyApp());
 }
@@ -64,7 +67,6 @@ class _MyHomePageState extends State<MyHomePage> {
   bool _isDiscovering = false;
   final _audioRecorder = AudioRecorder();
   final _audioPlayer = AudioPlayer();
-  bool _isRecording = false;
 
   @override
   void initState() {
@@ -96,10 +98,10 @@ class _MyHomePageState extends State<MyHomePage> {
     try {
       bool paired = await bluetooth.bondDeviceAtAddress(device.address);
       if (paired) {
-        print('Paired with ${device.name}');
+        developer.log('Paired with ${device.name}');
         _startDiscovery(); // Refresh list after pairing
       } else {
-        print('Failed to pair with ${device.name}');
+        developer.log('Failed to pair with ${device.name}');
       }
     } catch (e) {
       print('Error pairing with device: $e');
@@ -110,9 +112,9 @@ class _MyHomePageState extends State<MyHomePage> {
     try {
       _connection = await BluetoothConnection.toAddress(device.address);
       print('Connected to ${device.name}');
- _listenForAudio();
+      _listenForAudio();
     } catch (e) {
-      print('Error connecting to device: $e');
+      developer.log('Error connecting to device: $e');
     }
   }
 
@@ -126,25 +128,24 @@ class _MyHomePageState extends State<MyHomePage> {
 
   void _listenForAudio() {
     _connection?.input?.listen((Uint8List data) {
-      _audioPlayer.playBytes(data);
+      _audioPlayer.playBytes(data.buffer.asUint8List());
     }).onDone(() {
-      print('Disconnected by remote device');
+      developer.log('Disconnected by remote device');
     });
   }
 
   void _startRecordingAndStreaming() async {
     if (await _audioRecorder.hasPermission()) {
-      await _audioRecorder.start();
-      setState(() {
-        _isRecording = true;
+      final tempPath = await _audioRecorder.start(
+        RecordConfig(),
+        path: 'temp_audio.m4a', // Provide a temporary path for recording
+      );
+ developer.log('Recording started: $tempPath');
+
+      _audioRecorder.onStateChanged().listen((state) {
+ developer.log('Recorder state changed: $state');
       });
-
-      // TODO: Stream audio data chunks from the recorder to _connection.output
     }
-  }
-
-  void _stopRecordingAndStreaming() async {
-    await _audioRecorder.stop();
     setState(() {
       _isRecording = false;
     });
@@ -217,6 +218,11 @@ class _MyHomePageState extends State<MyHomePage> {
         },
       ),
       bottomNavigationBar: BottomAppBar(
+        floatingActionButton: FloatingActionButton(
+        onPressed: _startDiscovery,
+        tooltip: 'Start Discovery',
+        child: const Icon(Icons.search),
+      ),
         child: Padding(
           padding: const EdgeInsets.all(16.0),
           child: Text(
@@ -224,11 +230,6 @@ class _MyHomePageState extends State<MyHomePage> {
             },
           );
         },
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _startDiscovery,
-        tooltip: 'Start Discovery',
-        child: const Icon(Icons.search),
       ),
     );
 }
