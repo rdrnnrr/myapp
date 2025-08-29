@@ -5,10 +5,10 @@
     "version": "0.2.0",
     "configurations": [
     {
-        "name": "Dart: Run all Tests",
+    {
+        "name": "Dart: Attach to Process",
         "type": "dart",
-        "request": "launch",
-        "program": "./test/"
+        "request"
     },
     {
         "name": "Flutter: Run all Tests",
