@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart';
 
 import 'package:record/record.dart';
-import 'package:record/record_platform_interface.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'dart:typed_data';
 import 'dart:developer' as developer;
@@ -67,6 +66,7 @@ class _MyHomePageState extends State<MyHomePage> {
   bool _isDiscovering = false;
   final _audioRecorder = AudioRecorder();
   final _audioPlayer = AudioPlayer();
+  bool _isRecording = false; // Declared _isRecording here
 
   @override
   void initState() {
@@ -96,22 +96,22 @@ class _MyHomePageState extends State<MyHomePage> {
 
   void _pairDevice(BluetoothDevice device) async {
     try {
-      bool paired = await bluetooth.bondDeviceAtAddress(device.address);
-      if (paired) {
+      bool? paired = await bluetooth.bondDeviceAtAddress(device.address); // Handle bool?
+      if (paired == true) { // Check for true explicitly
         developer.log('Paired with ${device.name}');
         _startDiscovery(); // Refresh list after pairing
       } else {
         developer.log('Failed to pair with ${device.name}');
       }
     } catch (e) {
-      print('Error pairing with device: $e');
+      developer.log('Error pairing with device: $e'); // Replaced print with developer.log
     }
   }
 
   void _connectToDevice(BluetoothDevice device) async {
     try {
       _connection = await BluetoothConnection.toAddress(device.address);
-      print('Connected to ${device.name}');
+      developer.log('Connected to ${device.name}'); // Replaced print with developer.log
       _listenForAudio();
     } catch (e) {
       developer.log('Error connecting to device: $e');
@@ -121,14 +121,14 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   void dispose() {
     _connection?.dispose();
- _audioRecorder.dispose();
- _audioPlayer.dispose();
+    _audioRecorder.dispose();
+    _audioPlayer.dispose();
     super.dispose();
   }
 
   void _listenForAudio() {
     _connection?.input?.listen((Uint8List data) {
-      _audioPlayer.playBytes(data.buffer.asUint8List());
+      _audioPlayer.play(BytesSource(data)); // Corrected playBytes to play with BytesSource
     }).onDone(() {
       developer.log('Disconnected by remote device');
     });
@@ -136,23 +136,21 @@ class _MyHomePageState extends State<MyHomePage> {
 
   void _startRecordingAndStreaming() async {
     if (await _audioRecorder.hasPermission()) {
-      final tempPath = await _audioRecorder.start(
+      await _audioRecorder.start( // Removed assignment to tempPath
         RecordConfig(),
         path: 'temp_audio.m4a', // Provide a temporary path for recording
       );
- developer.log('Recording started: $tempPath');
+      developer.log('Recording started: temp_audio.m4a'); // Updated log message
 
       _audioRecorder.onStateChanged().listen((state) {
- developer.log('Recorder state changed: $state');
+        developer.log('Recorder state changed: $state');
       });
     }
     setState(() {
-      _isRecording = false;
+      _isRecording = true; // Set to true when recording starts
     });
     // TODO: Stop streaming audio data
   }
-
-
 
   @override
   Widget build(BuildContext context) {
@@ -217,20 +215,19 @@ class _MyHomePageState extends State<MyHomePage> {
           );
         },
       ),
-      bottomNavigationBar: BottomAppBar(
-        floatingActionButton: FloatingActionButton(
-        onPressed: _startDiscovery,
-        tooltip: 'Start Discovery',
-        child: const Icon(Icons.search),
+      floatingActionButton: FloatingActionButton( // Moved FloatingActionButton here
+        onPressed: _startRecordingAndStreaming, // Changed to _startRecordingAndStreaming
+        tooltip: 'Start Recording',
+        child: Icon(_isRecording ? Icons.mic_off : Icons.mic),
       ),
+      bottomNavigationBar: BottomAppBar(
         child: Padding(
           padding: const EdgeInsets.all(16.0),
           child: Text(
             _selectedDevice != null ? 'Selected Device: ${_selectedDevice!.name ?? _selectedDevice!.address}' : 'Select a device',
-            },
-          );
-        },
+          ),
+        ),
       ),
     );
-}
+  }
 }
